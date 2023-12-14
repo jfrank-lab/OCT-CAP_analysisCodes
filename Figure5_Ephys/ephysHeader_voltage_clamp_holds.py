@@ -16,22 +16,22 @@ import pyabf
 folder=r'INSERT CSX_CELLX FOLDER HERE'
 
 
-# function to get the UV pulse indices so where the pulse starts and ends
+# function to get the pulse indices so where the pulse starts and ends
 # also have the UV pulse value if you need it but I never used it
-def stepInformation(UV_led):
+def stepInformation(cond):
     # where the UV pulse starts
     # get the index where the UV pulse goes above 0.1 V i.e. a change in step
-    step_start = next(x for x, val in enumerate(UV_led)
+    step_start = next(x for x, val in enumerate(cond)
                                   if val > 0.1) 
 
     # postive current step amplitude 
     # in V
-    step_value = round(UV_led[step_start] - UV_led[0])
+    step_value = round(cond[step_start] - cond[0])
 
     # where the UV pulse ends
     # get the index where the UV pulse goes below 0.1 V i.e. a change in step
-    step_end = (next(x for x, val in enumerate(UV_led[step_start:len(UV_led)])
-                                  if val < UV_led[step_start]-0.1)) + step_start 
+    step_end = (next(x for x, val in enumerate(cond[step_start:len(cond)])
+                                  if val < cond[step_start]-0.1)) + step_start 
     return step_start, step_end
 
 
@@ -51,20 +51,23 @@ abf = pyabf.ABF(holdFolder + '\\' + filenames[0]) # import the UV hold file
 time = abf.sweepX    
 current = abf.sweepY
 voltage = abf.sweepC
-UV_led= abf.data[2]
+cond= abf.data[2] # either the UV led pulse or drug addition step
 sample_rate=abf.sampleRate # samples per second
 
 
-steadyStateCurrent=np.mean(current[0:30000]) # get the baseline current 
+# get the baseline current 
+steadyStateCurrent=np.mean(current[0:30000]) 
 
-step_start,step_end = stepInformation(UV_led)
+# get the pulse information. cond is UV pulse or drug addition step
+step_start,step_end = stepInformation(cond)
 
-# end current is the average over the last 10 seconds of the UV pulse and 20 seconds after
+# end current is the average over the last 10 seconds of the pulse (UV or drug) and 20 seconds after
+# save these indices
+
 # this is what I used for my negative controls
 endCurrent = np.mean(current[step_end-(sample_rate*10):step_end+(sample_rate*20)]) 
 
 # for results CAP/untethered/tethered I changed this to be the indices where the max response was
-# save these indices
 endCurrent = np.mean(current[2250000:2400000]) 
 
 
