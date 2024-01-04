@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 """
+Code for analysing voltage hold data from .abf files
+outputs:
+current values before and after experimental condition
+
 Created on Thu Dec 14 08:57:33 2023
 
 @author: howeca
