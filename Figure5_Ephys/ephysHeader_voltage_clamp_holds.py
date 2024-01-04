@@ -8,40 +8,36 @@ Created on Thu Dec 14 08:57:33 2023
 import os
 import numpy as np
 import pyabf
+import matplotlib.pyplot as plt
+import pandas as pd 
+import sys
+sys.path.insert(1, r'Z:\Labs\Frank Lab\SHARED\000Frank lab shared\Data Analysis Scripts\Python\ephys_functions_dont_change')
+import ephys_analysis_figure_funcs_dontChange as pf
 
-######## User inputs ########
+
+''' ######## User inputs ######## '''
 # insert csX_cellX folder here. You need to run this for each experimental repeat
 #e.g. folder=r'Z:\Labs\Frank Lab\Carmel\Ephys\HEK\230404_trans_noIncubation_OCT-CAP_x4\cs4_cell1_trans_noIncubation_OCT-CAP_5uM_UV-irradiation_CAP_1uM'
 # !!!!!!the r before the file path is very important!!!!!!!
 folder=r'INSERT CSX_CELLX FOLDER HERE'
+control = 'exp' # indicate whether the experiment was an experiment/ pos control ('exp') or ('neg') control.
+
+# RUN this for voltage holds. UV holds and drug holds need the same code so just run twice 
+# for the recording you are analysing
+# Change the experiment type below
+experiment = 'UV' # or 'drug';
+
+""" End of user inputs """
 
 
-# function to get the pulse indices so where the pulse starts and ends
-# also have the UV pulse value if you need it but I never used it
-def stepInformation(cond):
-    # where the UV pulse starts
-    # get the index where the UV pulse goes above 0.1 V i.e. a change in step
-    step_start = next(x for x, val in enumerate(cond)
-                                  if val > 0.1) 
 
-    # postive current step amplitude 
-    # in V
-    step_value = round(cond[step_start] - cond[0])
-
-    # where the UV pulse ends
-    # get the index where the UV pulse goes below 0.1 V i.e. a change in step
-    step_end = (next(x for x, val in enumerate(cond[step_start:len(cond)])
-                                  if val < cond[step_start]-0.1)) + step_start 
-    return step_start, step_end
-
-
-"""
-RUN this for voltage holds. UV holds and drug holds need the same code so just run twice 
-for the recording you are analysing
-Change the holdFolder below
-"""
-holdFolder =folder + '\\holds_UV'   # find the folder with the UV hold recordings
-#holdFolder =folder + '\\holds_drug'  # find the folder with the drug hold recordings
+# finds folders for the experiment type
+if experiment == 'UV':
+    holdFolder =folder + '\\holds_UV'   # find the folder with the UV hold recordings
+elif experiment == 'drug':
+    holdFolder =folder + '\\holds_drug'  # find the folder with the drug hold recordings
+else:
+    print('specify whether this is a UV or drug addition experiment')
 
 filenames=np.array(os.listdir(holdFolder)) # list the files within that folder
 
@@ -54,33 +50,70 @@ voltage = abf.sweepC
 cond= abf.data[2] # either the UV led pulse or drug addition step
 sample_rate=abf.sampleRate # samples per second
 
-
 # get the baseline current 
 steadyStateCurrent=np.mean(current[0:30000]) 
 
-# get the pulse information. cond is UV pulse or drug addition step
-step_start,step_end = stepInformation(cond)
+# get the pulse information i.e. where the pulse starts and end
+#cond is UV pulse or drug addition step
+
+# where the UV pulse starts
+# get the index where the UV pulse goes above 0.1 V i.e. a change in step
+step_start = next(x for x, val in enumerate(cond)
+                                  if val > 0.1) 
+
+# postive current step amplitude 
+# in V
+step_value = round(cond[step_start] - cond[0])
+
+# where the UV pulse ends
+# get the index where the UV pulse goes below 0.1 V i.e. a change in step
+step_end = (next(x for x, val in enumerate(cond[step_start:len(cond)])
+                                  if val < cond[step_start]-0.1)) + step_start 
+
 
 # end current is the average over the last 10 seconds of the pulse (UV or drug) and 20 seconds after
 # save these indices
+if control == 'neg':
+    # this is what I used for my negative control
+    startAvgIdx = step_end-(sample_rate*10) # last 10 s of the pulse
+    endAvgIdx = step_end+(sample_rate*20) # 20s post end of pulse
+    endCurrent = np.mean(current[:]) 
+    
+elif control == 'exp':
+    # find the minimum value from the current trace and average across 30s
+    minIdx = np.argmin(current)
+    startAvgIdx = minIdx-(sample_rate*10) # 10 s before min value
+    endAvgIdx = minIdx+(sample_rate*20) # 20s post min value
+    endCurrent = np.mean(current[startAvgIdx:endAvgIdx]) 
+    
+    fig = plt.gcf()   
+    plt.plot(current[startAvgIdx:endAvgIdx])
+    pf.saveFigurePNG(fig,folder + r'\\figures\\' ,'maxCurrent')
+    
+    ## uncomment and run these lines if your endCurrent doesn't look like the correct value
+    # plt.plot(current)
+    # startAvgIdx = 200000  # put your start index here
+    # endAvgIdx = 800000    # put your end index here
+    # endCurrent = np.mean(current[startAvgIdx:endAvgIdx]) 
+   
+else:
+    # error message if control not specified 
+    print('you havent specified whether you are running a pos or neg control')
 
-# this is what I used for my negative controls
-endCurrent = np.mean(current[step_end-(sample_rate*10):step_end+(sample_rate*20)]) 
 
-# for results CAP/untethered/tethered I changed this to be the indices where the max response was
-endCurrent = np.mean(current[2250000:2400000]) 
+diff = endCurrent - steadyStateCurrent # difference
 
 
-diff = endCurrent - steadyStateCurrent
-
-##### here i manually saved the following ####
-#file in final analysis "holding_current_values_CONDITION.csv"
+# saves .csv file in analysedData "holding_current_values_CONDITION.csv"
 # folder
 # filename
 # steadyStateCurrent
 # endCurrent
 # diff
 # condition indices
+data = [[folder, filenames[0], steadyStateCurrent, endCurrent, diff, startAvgIdx, endAvgIdx]]
+df = pd.DataFrame(data, columns=['folder', 'filename','steadyStateCurrent','endCurrent','diff','condIdx1','condIdx2'])
+df.to_csv(folder + r'\\analysedData\\' + 'holding_current_values_{}_pA.csv'.format(experiment))    
 
 
   
