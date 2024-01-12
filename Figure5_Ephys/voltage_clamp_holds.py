@@ -120,4 +120,20 @@ df = pd.DataFrame(data, columns=['folder', 'filename','steadyStateCurrent','endC
 df.to_csv(folder + r'\\analysedData\\' + 'holding_current_values_{}_pA.csv'.format(experiment))    
 
 
+
+####### Figure ######
+
+tPlot, axes = plt.subplots(
+        nrows=2, ncols=1, sharex=True, sharey=False, 
+        gridspec_kw={'height_ratios':[0.25,2]}
+        )
+    
+axes[0].plot(time,np.transpose(cond)/5,linewidth=2,color='#6ba566')
+    
+axes[1].plot(time,current,linewidth=2,color='k')
+axes[1].plot([0,0],[-500,-1500],linewidth=4.0,color='k')
+axes[1].plot([0,20],[-1500,-1500],linewidth=4.0,color='k')
+pf.noBorders(axes[0])
+tPlot.set_size_inches(8,4)
+pf.saveFigure(tPlot,folder+'\\'+'figures','timeSeriesExtended_noTRPV1_CAP-1uM_washOnCap_SB-20seconds_1000pA')
   
